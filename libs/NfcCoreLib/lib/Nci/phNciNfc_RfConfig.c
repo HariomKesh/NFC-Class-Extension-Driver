@@ -718,44 +718,43 @@ phNciNfc_BuildSetLstnRtngCmdPayload(uint8_t                *pBuffer,
 
     /* Update more field into the payload buffer */
     pBuffer[bOffset++] = bMore;
-
-    /* Update number of routing configuration entries */
     pBuffer[bOffset++] = bNumRtngEntries;
 
-    for(bNoOfEntries = 0; bNoOfEntries < bNumRtngEntries; bNoOfEntries++)
+    PH_LOG_NCI_INFO_STR("Update routing table in Order!!!");
+
+    /* Update AID enteries to routing table */
+    for (bNoOfEntries = 0; bNoOfEntries < bNumRtngEntries; bNoOfEntries++)
     {
         pLstnRtngEntry = &(pRtngConfig[bNoOfEntries]);
-
-        switch(pLstnRtngEntry->Type)
+        if (pLstnRtngEntry->Order == phNciNfc_e_LstnModeRtngAidOrder)
         {
-            case phNciNfc_e_LstnModeRtngTechBased:
-            {
-                bBytesUpdated = phNciNfc_UpdateTechRtngParams(&pBuffer[bOffset],pLstnRtngEntry);
-
-                bOffset += bBytesUpdated;
-                break;
-            }
-            case phNciNfc_e_LstnModeRtngProtocolBased:
-            {
-                bBytesUpdated = phNciNfc_UpdateProtoRtngParams(&pBuffer[bOffset],pLstnRtngEntry);
-
-                bOffset += bBytesUpdated;
-                break;
-            }
-            case phNciNfc_e_LstnModeRtngAidBased:
-            {
-                bBytesUpdated = phNciNfc_UpdateAidRtngParams(&pBuffer[bOffset],pLstnRtngEntry);
-
-                bOffset += bBytesUpdated;
-                break;
-            }
-
-            default:
-                /* Should never enter here since all input parameters are already validated */
-                PH_LOG_NCI_WARN_STR("Unknown routing type");
-                break;
+            bBytesUpdated = phNciNfc_UpdateAidRtngParams(&pBuffer[bOffset], pLstnRtngEntry);
+            bOffset += bBytesUpdated;
         }
     }
+
+    /* Update Protocol enteries by Order to routing table */
+    for (bNoOfEntries = 0; bNoOfEntries < bNumRtngEntries; bNoOfEntries++)
+    {
+        pLstnRtngEntry = &(pRtngConfig[bNoOfEntries]);
+        if (pLstnRtngEntry->Order == phNciNfc_e_LstnModeRtngProtocolOrder)
+        {
+            bBytesUpdated = phNciNfc_UpdateProtoRtngParams(&pBuffer[bOffset], pLstnRtngEntry);
+            bOffset += bBytesUpdated;
+        }
+    }
+
+    /* Update Technology enteries by Order to routing table */
+    for (bNoOfEntries = 0; bNoOfEntries < bNumRtngEntries; bNoOfEntries++)
+    {
+        pLstnRtngEntry = &(pRtngConfig[bNoOfEntries]);
+        if (pLstnRtngEntry->Order == phNciNfc_e_LstnModeRtngTechOrder)
+        {
+            bBytesUpdated = phNciNfc_UpdateTechRtngParams(&pBuffer[bOffset], pLstnRtngEntry);
+            bOffset += bBytesUpdated;
+        }
+    }
+
     PH_LOG_NCI_FUNC_EXIT();
     return ;
 }

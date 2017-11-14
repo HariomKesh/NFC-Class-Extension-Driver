@@ -284,7 +284,6 @@ NFCSTATUS phLibNfc_Mgt_ConfigRoutingTable(uint8_t               bNumRtngConfigs,
     phLibNfc_Event_t        TrigEvent       = phLibNfc_EventDummy;
 
     PH_LOG_LIBNFC_FUNC_ENTRY();
-
     if(NULL == pLibCtx)
     {
         PH_LOG_LIBNFC_CRIT_STR("LibNfc not initialized");
@@ -319,6 +318,7 @@ NFCSTATUS phLibNfc_Mgt_ConfigRoutingTable(uint8_t               bNumRtngConfigs,
                 if(NFCSTATUS_SUCCESS == wStatus)
                 {
                     pLibCtx->sSeContext.pRoutingCfgBuffer[bNumRtngAdded].Type = phNciNfc_e_LstnModeRtngProtocolBased;
+                    pLibCtx->sSeContext.pRoutingCfgBuffer[bNumRtngAdded].Order = phNciNfc_e_LstnModeRtngProtocolOrder;
                     pLibCtx->sSeContext.pRoutingCfgBuffer[bNumRtngAdded].LstnModeRtngValue.tProtoBasedRtngValue.bRoute = 0;
                     pLibCtx->sSeContext.pRoutingCfgBuffer[bNumRtngAdded].LstnModeRtngValue.tProtoBasedRtngValue.tPowerState.bSwitchedOff = 0x00;
                     pLibCtx->sSeContext.pRoutingCfgBuffer[bNumRtngAdded].LstnModeRtngValue.tProtoBasedRtngValue.tPowerState.bBatteryOff = 0x00;
@@ -899,6 +899,7 @@ static NFCSTATUS phLibNfc_UpdateRtngInfo(pphNciNfc_RtngConfig_t pNciRtngCfg,
         {
             case phNfc_LstnModeRtngTechBased:
                 pNciRtngCfg->Type = phNciNfc_e_LstnModeRtngTechBased;
+                pNciRtngCfg->Order = phNciNfc_e_LstnModeRtngTechOrder;
                 pNciRtngCfg->LstnModeRtngValue.tTechBasedRtngValue.bRoute = bNfceeId;
                 pNciRtngCfg->LstnModeRtngValue.tTechBasedRtngValue.tPowerState.bBatteryOff =
                     pLibNfcRtngCfg->LstnModeRtngValue.tTechBasedRtngValue.tPowerState.bBatteryOff;
@@ -915,6 +916,7 @@ static NFCSTATUS phLibNfc_UpdateRtngInfo(pphNciNfc_RtngConfig_t pNciRtngCfg,
                 break;
             case phNfc_LstnModeRtngProtocolBased:
                 pNciRtngCfg->Type = phNciNfc_e_LstnModeRtngProtocolBased;
+                pNciRtngCfg->Order = phNciNfc_e_LstnModeRtngProtocolOrder;
                 pNciRtngCfg->LstnModeRtngValue.tProtoBasedRtngValue.bRoute = bNfceeId;
                 pNciRtngCfg->LstnModeRtngValue.tProtoBasedRtngValue.tPowerState.bBatteryOff =
                     pLibNfcRtngCfg->LstnModeRtngValue.tProtoBasedRtngValue.tPowerState.bBatteryOff;
@@ -931,6 +933,7 @@ static NFCSTATUS phLibNfc_UpdateRtngInfo(pphNciNfc_RtngConfig_t pNciRtngCfg,
                 break;
             case phNfc_LstnModeRtngAidBased:
                 pNciRtngCfg->Type = phNciNfc_e_LstnModeRtngAidBased;
+                pNciRtngCfg->Order = phNciNfc_e_LstnModeRtngAidOrder;
                 pNciRtngCfg->LstnModeRtngValue.tAidBasedRtngValue.bRoute = bNfceeId;
                 pNciRtngCfg->LstnModeRtngValue.tAidBasedRtngValue.tPowerState.bBatteryOff =
                     pLibNfcRtngCfg->LstnModeRtngValue.tAidBasedRtngValue.tPowerState.bBatteryOff;

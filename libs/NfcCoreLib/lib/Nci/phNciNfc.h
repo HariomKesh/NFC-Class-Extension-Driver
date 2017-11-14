@@ -363,6 +363,15 @@ typedef enum phNciNfc_GenericErrCode
      phNciNfc_e_LstnModeRtngAidBased = 2      /**< AID-based routing entry */
 }phNciNfc_LstnModeRtngType_t;
 
+ typedef enum phNciNfc_LstnModeRtngOrder
+ {
+     phNciNfc_e_LstnModeRtngAidOrder = 0,    /**< AID-based routing order */
+     phNciNfc_e_LstnModeRtngAPDUPatternOrder = 1,    /**< APDU Pattern-based routing order */
+     phNciNfc_e_LstnModeRtngSystemCodeOrder = 2,    /**< System Code-based routing order */
+     phNciNfc_e_LstnModeRtngProtocolOrder = 3,/**< Protocol-based routing order */
+     phNciNfc_e_LstnModeRtngTechOrder = 4      /**< Technology-based routing order */
+ }phNciNfc_LstnModeRtngOrder_t;
+
 /*!
  * \ingroup grp_nci_nfc
  * \brief This contains RF Field information.
@@ -909,6 +918,7 @@ typedef struct phNciNfc_AidBasedRtngValue
 typedef struct phNciNfc_RtngConfig
 {
     phNciNfc_LstnModeRtngType_t Type;   /**< The type filed of 'TLV' coding for Listen Mode Routing */
+    phNciNfc_LstnModeRtngOrder_t Order; /**< The order enteries for Listen Mode Routing */
     union
     {
         phNciNfc_TechnBasedRtngValue_t tTechBasedRtngValue;  /**< Technology based routing value */

@@ -857,6 +857,7 @@ static NFCSTATUS phLibNfc_SetLsntModeRtng(void* pContext, NFCSTATUS status, void
     {
         /* Including Nfc-Dep routing which is required for P2P */
         tRtngConfig[bCount].Type = phNciNfc_e_LstnModeRtngProtocolBased;
+        tRtngConfig[bCount].Order = phNciNfc_e_LstnModeRtngProtocolOrder;
         tRtngConfig[bCount].LstnModeRtngValue.tProtoBasedRtngValue.bRoute = 0;
         tRtngConfig[bCount].LstnModeRtngValue.tProtoBasedRtngValue.tPowerState.bSwitchedOn = 0x01;
         tRtngConfig[bCount].LstnModeRtngValue.tProtoBasedRtngValue.tRfProtocol = phNciNfc_e_RfProtocolsNfcDepProtocol;
