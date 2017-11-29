@@ -21,11 +21,10 @@ static NFCSTATUS phLibNfc_HciGetWhiteList(void* pContext,NFCSTATUS status,void* 
 static NFCSTATUS phLibNfc_HciGetWhiteListProc(void* pContext,NFCSTATUS status,void* pInfo);
 static NFCSTATUS phLibNfc_HciGetSessionIdentity(void* pContext,NFCSTATUS status,void* pInfo);
 static NFCSTATUS phLibNfc_HciGetSessionIdentityProc(void* pContext,NFCSTATUS status,void* pInfo);
-static NFCSTATUS phLibNfc_HciChildDevInitComplete(void* pContext, NFCSTATUS status, void* pInfo);
-static NFCSTATUS phLibNfc_HciChildDevCommonInitComplete(void* pContext, NFCSTATUS status, void* pInfo);
+static NFCSTATUS phLibNfc_HciChildDevSetModeComplete(void* pContext, NFCSTATUS status, void* pInfo);
+static NFCSTATUS phLibNfc_HciCommonChildDevInitComplete(void* pContext, NFCSTATUS status, void* pInfo);
 static NFCSTATUS phLibNfc_HciInitComplete(void* pContext,NFCSTATUS status,void* pInfo);
-static NFCSTATUS phLibNfc_HciChildDevCreateApduPipeComplete(void* pContext, NFCSTATUS status, void* pInfo);
-static NFCSTATUS phLibNfc_HciEndInitSequence(void* pContext, NFCSTATUS status, void* pInfo);
+static NFCSTATUS phLibNfc_HciCommonChildDevCreateApduPipeComplete(void* pContext, NFCSTATUS status, void* pInfo);
 static void phHciNfc_check_NFCEECompliancy(void* pContext, uint8_t *p_data, uint8_t data_len);
 static NFCSTATUS phLibNfc_NfceeModeSet(void *pContext,NFCSTATUS wStatus,void *pInfo);
 static NFCSTATUS phLibNfc_HostModeSet(void *pContext, NFCSTATUS wStatus, void *pInfo);
@@ -64,7 +63,7 @@ static BOOL phLibNfc_IsAPDUPipePresent(uint8_t hostId, void *pContext);
 void phHciNfc_Process_eSE_ClearALLPipes(void);
 
 phLibNfc_Sequence_t gphLibNfc_HciInitSequenceNci1x[] = {
-    {&phLibNfc_OpenLogConn, &phLibNfc_OpenLogConnProcess},
+    { &phLibNfc_OpenLogConn, &phLibNfc_OpenLogConnProcess },
     { &phLibNfc_NfceeModeSet, &phLibNfc_NfceeModeSetProc },
     { &phLibNfc_DelayForSeNtf, &phLibNfc_DelayForSeNtfProc },
     { &phLibNfc_HciOpenAdmPipe, &phLibNfc_HciOpenAdmPipeProc },
@@ -75,42 +74,37 @@ phLibNfc_Sequence_t gphLibNfc_HciInitSequenceNci1x[] = {
     {NULL, &phLibNfc_HciInitComplete}
 };
 
-phLibNfc_Sequence_t gphLibNfc_HciChildDevCommonInitSequenceNci1x[] =
+phLibNfc_Sequence_t gphLibNfc_HciCommonChildDevInitSequence[] =
 {
     { &phLibNfc_HciGetHostList, &phLibNfc_HciGetHostListProc },
     { &phLibNfc_DelayForSeNtf, &phLibNfc_DelayForSeNtfProc },
     { &phLibNfc_HciGetHostTypeList,&phLibNfc_HciGetHostTypeListProc },
-    { NULL, &phLibNfc_HciChildDevCommonInitComplete },
+    { NULL, &phLibNfc_HciCommonChildDevInitComplete }
 };
 
-phLibNfc_Sequence_t gphLibNfc_HciChildDevCreateApduPipeInitSequenceNci1x[] =
+phLibNfc_Sequence_t gphLibNfc_HciCommonChildDevCreateApduPipeSequence[] =
 {
     { &phLibNfc_HostModeSet, &phLibNfc_NfceeModeSetProc },
     { &phLibNfc_HciCreateApduPipe,&phLibNfc_HciCreateApduPipeProc },
     { &phLibNfc_HciOpenAPDUPipe,&phLibNfc_HciOpenAPDUPipeProc },
     { &phLibNfc_DelayForNfceeAtr, &phLibNfc_DelayForNfceeAtrProc },
-    { NULL, &phLibNfc_HciChildDevCreateApduPipeComplete}
+    { NULL, &phLibNfc_HciCommonChildDevCreateApduPipeComplete}
 };
 
-phLibNfc_Sequence_t gphLibNfc_HciEndInitSequenceNci1x[] =
-{
-    { &phLibNfc_HciSetSessionIdentity, &phLibNfc_HciSetSessionIdentityProc },
-    { NULL, &phLibNfc_HciEndInitSequence}
-};
 
 phLibNfc_Sequence_t gphLibNfc_HciInitSequenceNci2x[] =
 {
-    {&phLibNfc_HciOpenAdmPipeNci2x, &phLibNfc_HciOpenAdmPipeProc},
+    { &phLibNfc_HciOpenAdmPipeNci2x, &phLibNfc_HciOpenAdmPipeProc},
     { &phLibNfc_HciSetWhiteList, &phLibNfc_HciSetWhiteListProc },
     { &phLibNfc_HciSetHostType, &phLibNfc_HciSetHostTypeProc },
     { &phLibNfc_HciGetSessionIdentity, &phLibNfc_HciGetSessionIdentityProc },
     { NULL, &phLibNfc_HciInitComplete}
 };
 
-phLibNfc_Sequence_t gphLibNfc_HciChildDevInitSequenceNci2x[] = {
+phLibNfc_Sequence_t gphLibNfc_HciChildDevSetModeSequenceNci2x[] = {
     { &phLibNfc_NfceeModeSet, &phLibNfc_NfceeModeSetProc },
     { &phLibNfc_DelayForSeNtf, &phLibNfc_DelayForSeNtfProc },
-    { NULL, &phLibNfc_HciChildDevInitComplete }
+    { NULL, &phLibNfc_HciChildDevSetModeComplete }
 };
 
 static phLibNfc_Sequence_t gphLibNfc_HciTransceiveSequence[] = {
@@ -531,6 +525,7 @@ static NFCSTATUS phLibNfc_HciInitComplete(void* pContext,NFCSTATUS status,void* 
     NFCSTATUS wStatus = status;
     pphLibNfc_Context_t pLibCtx = (pphLibNfc_Context_t)pContext;
     uint8_t bIndex = 0;
+    uint8_t bCount = 0;
     UNUSED(pInfo);
     PH_LOG_LIBNFC_FUNC_ENTRY();
     if(pLibCtx != NULL)
@@ -550,7 +545,30 @@ static NFCSTATUS phLibNfc_HciInitComplete(void* pContext,NFCSTATUS status,void* 
         wStatus = phLibNfc_SE_GetIndex(pLibCtx, phLibNfc_SeStateNotInitialized, &bIndex);
         if (wStatus == NFCSTATUS_SUCCESS)
         {
-            wStatus = phLibNfc_HciLaunchChildDevInitSequence(pLibCtx, bIndex);
+            if (phNciNfc_IsVersion1x(phNciNfc_GetContext()))
+            {
+                PH_LOG_LIBNFC_CRIT_STR(" Launch NCI 1.0 HCI Init Sequence!!!");
+                for (bCount = phLibNfc_SE_Index_UICC; bCount <= phLibNfc_SE_Index_eSE; bCount++)
+                {
+                    if((pLibCtx->tSeInfo.bSeState[bCount] == phLibNfc_SeStateNotInitialized) &&
+                        (pLibCtx->tSeInfo.tSeList[bCount].hSecureElement != NULL))
+                    {
+                        pLibCtx->tSeInfo.bSeState[bCount] = phLibNfc_SeStateInitialized;
+                    }
+                }
+                PHLIBNFC_INIT_SEQUENCE(pLibCtx, gphLibNfc_HciCommonChildDevInitSequence);
+                wStatus = phLibNfc_SeqHandler(pLibCtx, NFCSTATUS_SUCCESS, NULL);
+                if (NFCSTATUS_PENDING != wStatus)
+                {
+                    PH_LOG_LIBNFC_CRIT_STR("gphLibNfc_HciCommonChildDevInitSequence sequence could not start!");
+                    wStatus = NFCSTATUS_FAILED;
+                }
+            }
+            else
+            {
+                PH_LOG_LIBNFC_CRIT_STR(" Launch NCI 2.0 HCI Init Sequence!!!");
+                wStatus = phLibNfc_HciLaunchNfceeModeSetSeqNci2x(pLibCtx, bIndex);
+            }
         }
 
         if((wStatus == NFCSTATUS_FAILED) && (pLibCtx->sSeContext.nNfceeDiscNtf == 0))
@@ -977,7 +995,8 @@ phHciNfc_ProcessEventsOnApduPipe(void *pContext, NFCSTATUS wStatus, void *pInfo)
         }
         break;
         case PHHCINFC_EVENT_ATR_RECV:
-            (void)phLibNfc_eSE_GetAtrProc(pContext, wStatus, pInfo);
+            if(pLibContext->CBInfo.pSeClientGetAtrCb != NULL)
+              (void)phLibNfc_eSE_GetAtrProc(pContext, wStatus, pInfo);
             break;
         default:
             break;
@@ -1297,7 +1316,7 @@ static NFCSTATUS phLibNfc_HostModeSet(void *pContext, NFCSTATUS wStatus, void *p
                 PH_LOG_LIBNFC_INFO_STR("Pipe is already present at APDU Gate for SE: %X", ahostId);
                 return NFCSTATUS_SUCCESS;
             }
-            wIntStatus = phNciNfc_SE_ModeSet(pLibContext->sHwReference.pNciHandle,
+            wIntStatus = phNciNfc_Nfcee_ModeSet(pLibContext->sHwReference.pNciHandle,
                 ahostId,
                 PH_NCINFC_EXT_NFCEEMODE_ENABLE,
                 (pphNciNfc_IfNotificationCb_t)&phLibNfc_InternalSequence,
@@ -1327,14 +1346,15 @@ static NFCSTATUS phLibNfc_NfceeModeSet(void *pContext, NFCSTATUS wStatus, void *
     if((NULL != pLibContext) && (phLibNfc_GetContext() == pLibContext))
     {
         pNfceeHandle = (pphNciNfc_NfceeDeviceHandle_t)pLibContext->sSeContext.pActiveSeInfo->hSecureElement;
-        if (pNfceeHandle->tDevInfo.eNfceeStatus == PH_NCINFC_EXT_NFCEEMODE_ENABLE && pNfceeHandle->tDevInfo.bNfceeID == phHciNfc_e_TerminalHostID)
+        if ((pNfceeHandle->tDevInfo.eNfceeStatus == PH_NCINFC_EXT_NFCEEMODE_ENABLE) &&
+            (pNfceeHandle->tDevInfo.bNfceeID == phHciNfc_e_TerminalHostID))
         {
             wIntStatus = NFCSTATUS_SUCCESS;
         }
         else
         {
            wIntStatus = phNciNfc_Nfcee_ModeSet(pLibContext->sHwReference.pNciHandle,
-                                    pLibContext->sSeContext.pActiveSeInfo->hSecureElement,
+                                    pNfceeHandle->tDevInfo.bNfceeID,
                                     PH_NCINFC_EXT_NFCEEMODE_ENABLE,
                                     (pphNciNfc_IfNotificationCb_t)&phLibNfc_InternalSequence,
                                     (void *)pLibContext);
@@ -1374,7 +1394,7 @@ static NFCSTATUS phLibNfc_NfceeModeSetProc(void *pContext, NFCSTATUS wStatus, vo
     return wIntStatus;
 }
 
-NFCSTATUS phLibNfc_HciChildDevCommonInitComplete(void* pContext, NFCSTATUS status, void* pInfo)
+NFCSTATUS phLibNfc_HciCommonChildDevInitComplete(void* pContext, NFCSTATUS status, void* pInfo)
 {
     NFCSTATUS wStatus = NFCSTATUS_SUCCESS;
     phHciNfc_HciContext_t *pHciContext;
@@ -1413,13 +1433,12 @@ NFCSTATUS phLibNfc_HciChildDevCommonInitComplete(void* pContext, NFCSTATUS statu
                     pHciContext->aHostID_ETSI12Compliant[(pHciContext->bNoOfHostsETSI12Compliant - 1)];
 
                 pHciContext->bHostActive_ETSI12Compliant = pHciContext->aHostID_ETSI12Compliant[pHciContext->bNoHostsInitialized];
-                PHLIBNFC_INIT_SEQUENCE(pLibCtx, gphLibNfc_HciChildDevCreateApduPipeInitSequenceNci1x);
+                PHLIBNFC_INIT_SEQUENCE(pLibCtx, gphLibNfc_HciCommonChildDevCreateApduPipeSequence);
                 wStatus = phLibNfc_SeqHandler(pLibCtx, NFCSTATUS_SUCCESS, NULL);
             }
             else
             {
-                PHLIBNFC_INIT_SEQUENCE(pLibCtx, gphLibNfc_HciEndInitSequenceNci1x);
-                wStatus = phLibNfc_SeqHandler(pLibCtx, NFCSTATUS_SUCCESS, NULL);
+                wStatus = phLibNfc_LaunchNfceeDiscCompleteSequence(pLibCtx, NFCSTATUS_SUCCESS, NULL);
             }
         }
         else
@@ -1432,22 +1451,13 @@ NFCSTATUS phLibNfc_HciChildDevCommonInitComplete(void* pContext, NFCSTATUS statu
         if (wStatus != NFCSTATUS_PENDING)
         {
             // Check if there is another NFCEE that needs initializing.
+            //Ideally all NFCEE's must be Initialized.
             // Note: An NFCEE that failed to initialize will have the 'phLibNfc_SeStateInvalid' state.
             wStatus = phLibNfc_SE_GetIndex(pLibCtx, phLibNfc_SeStateNotInitialized, &bIndex);
             if (wStatus != NFCSTATUS_SUCCESS)
             {
                 // No remaining uninitialized NFCEEs. Return control to the discovery sequence.
-                wStatus = NFCSTATUS_SUCCESS;
-                phLibNfc_LaunchNfceeDiscCompleteSequence(pLibCtx, NFCSTATUS_SUCCESS, NULL);
-            }
-            else
-            {
-                // Start initialization of the next NFCEE.
-                wStatus = phLibNfc_HciLaunchChildDevInitSequence(pContext, bIndex);
-                if (wStatus != NFCSTATUS_SUCCESS)
-                {
-                    PH_LOG_LIBNFC_CRIT_STR("Failed to start next NFCEE initialization.");
-                }
+                wStatus = phLibNfc_LaunchNfceeDiscCompleteSequence(pLibCtx, NFCSTATUS_SUCCESS, NULL);
             }
         }
 
@@ -1462,7 +1472,7 @@ NFCSTATUS phLibNfc_HciChildDevCommonInitComplete(void* pContext, NFCSTATUS statu
     // FYI: The return value of sequence completion routines are ignored by the sequence handler.
     return wStatus;
 }
-NFCSTATUS phLibNfc_HciChildDevInitComplete(void* pContext, NFCSTATUS status, void* pInfo)
+NFCSTATUS phLibNfc_HciChildDevSetModeComplete(void* pContext, NFCSTATUS status, void* pInfo)
 {
     NFCSTATUS wStatus = status;
     pphLibNfc_LibContext_t pLibCtx = (pphLibNfc_Context_t)pContext;
@@ -1488,22 +1498,22 @@ NFCSTATUS phLibNfc_HciChildDevInitComplete(void* pContext, NFCSTATUS status, voi
             }
         }
 
-        // Check if there is another NFCEE that needs initializing.
-        // Note: An NFCEE that failed to initialize will have the 'phLibNfc_SeStateInvalid' state.
+        // Note: An NFCEE with removed status is initialized will have the 'phLibNfc_SeStateInvalid' state.
+        // Check next NFCEE that needs to be  initialized state will be 'phLibNfc_SeStateNotInitialized'.
         wStatus = phLibNfc_SE_GetIndex(pLibCtx, phLibNfc_SeStateNotInitialized, &bIndex);
         if(wStatus == NFCSTATUS_SUCCESS)
         {
-            wStatus = phLibNfc_HciLaunchChildDevInitSequence(pContext, bIndex);
+            wStatus = phLibNfc_HciLaunchNfceeModeSetSeqNci2x(pContext, bIndex);
         }
 
         if((wStatus == NFCSTATUS_FAILED) && (pLibCtx->sSeContext.nNfceeDiscNtf == 0))
         {
-             PH_LOG_LIBNFC_INFO_STR("start here gphLibNfc_HciChildDevCommonInitSequenceNci1x");
-             PHLIBNFC_INIT_SEQUENCE(pLibCtx, gphLibNfc_HciChildDevCommonInitSequenceNci1x);
+             PH_LOG_LIBNFC_INFO_STR("start here gphLibNfc_HciCommonChildDevInitSequence");
+             PHLIBNFC_INIT_SEQUENCE(pLibCtx, gphLibNfc_HciCommonChildDevInitSequence);
              wStatus = phLibNfc_SeqHandler(pLibCtx, NFCSTATUS_SUCCESS, NULL);
              if (NFCSTATUS_PENDING != wStatus)
              {
-                 PH_LOG_LIBNFC_CRIT_STR("gphLibNfc_HciChildDevCommonInitSequenceNci1x sequence could not start!");
+                 PH_LOG_LIBNFC_CRIT_STR("gphLibNfc_HciCommonChildDevInitSequence sequence could not start!");
                  wStatus = NFCSTATUS_FAILED;
              }
         }
@@ -1516,7 +1526,7 @@ NFCSTATUS phLibNfc_HciChildDevInitComplete(void* pContext, NFCSTATUS status, voi
     return wStatus;
 }
 
-NFCSTATUS phLibNfc_HciChildDevCreateApduPipeComplete(void* pContext, NFCSTATUS status, void* pInfo)
+NFCSTATUS phLibNfc_HciCommonChildDevCreateApduPipeComplete(void* pContext, NFCSTATUS status, void* pInfo)
 {
     NFCSTATUS wStatus = status;
     pphLibNfc_LibContext_t pLibCtx = (pphLibNfc_Context_t)pContext;
@@ -1532,14 +1542,13 @@ NFCSTATUS phLibNfc_HciChildDevCreateApduPipeComplete(void* pContext, NFCSTATUS s
             if (pHciCtx->bLastHost_ETS12Compliant == pHciCtx->bHostActive_ETSI12Compliant)
             {
                 PH_LOG_LIBNFC_INFO_STR("All Nfcees are initialized!!!");
-                PHLIBNFC_INIT_SEQUENCE(pLibCtx, gphLibNfc_HciEndInitSequenceNci1x);
-                wStatus = phLibNfc_SeqHandler(pLibCtx, NFCSTATUS_SUCCESS, NULL);
+                wStatus = phLibNfc_LaunchNfceeDiscCompleteSequence(pLibCtx, NFCSTATUS_SUCCESS, NULL);
             }
             else
             {
                 pHciCtx->bNoHostsInitialized++;
                 pHciCtx->bHostActive_ETSI12Compliant = pHciCtx->aHostID_ETSI12Compliant[pHciCtx->bNoHostsInitialized];
-                PHLIBNFC_INIT_SEQUENCE(pLibCtx, gphLibNfc_HciChildDevCreateApduPipeInitSequenceNci1x);
+                PHLIBNFC_INIT_SEQUENCE(pLibCtx, gphLibNfc_HciCommonChildDevCreateApduPipeSequence);
                 wStatus = phLibNfc_SeqHandler(pLibCtx, NFCSTATUS_SUCCESS, NULL);
             }
         }
@@ -1552,24 +1561,6 @@ NFCSTATUS phLibNfc_HciChildDevCreateApduPipeComplete(void* pContext, NFCSTATUS s
     return wStatus;
 }
 
-NFCSTATUS phLibNfc_HciEndInitSequence(void* pContext, NFCSTATUS status, void* pInfo)
-{
-    NFCSTATUS wStatus = status;
-    pphLibNfc_LibContext_t pLibCtx = (pphLibNfc_Context_t)pContext;
-
-    UNUSED(pInfo);
-    PH_LOG_LIBNFC_FUNC_ENTRY();
-    if (pLibCtx != NULL)
-    {
-
-    }
-    else
-    {
-        wStatus = NFCSTATUS_FAILED;
-    }
-    PH_LOG_LIBNFC_FUNC_EXIT();
-    return wStatus;
-}
 
 NFCSTATUS phLibNfc_HciLaunchDevInitSequence(void *pContext)
 {
@@ -1603,7 +1594,7 @@ NFCSTATUS phLibNfc_HciLaunchDevInitSequence(void *pContext)
     return wStatus;
 }
 
-NFCSTATUS phLibNfc_HciLaunchChildDevInitSequence(void *pContext,phLibNfc_SE_Index_t bIndex)
+NFCSTATUS phLibNfc_HciLaunchNfceeModeSetSeqNci2x(void *pContext,phLibNfc_SE_Index_t bIndex)
 {
     pphLibNfc_LibContext_t pLibContext = (pphLibNfc_LibContext_t)pContext;
     NFCSTATUS wStatus = NFCSTATUS_FAILED;
@@ -1615,20 +1606,12 @@ NFCSTATUS phLibNfc_HciLaunchChildDevInitSequence(void *pContext,phLibNfc_SE_Inde
         pLibContext->tSeInfo.bSeState[bIndex] = phLibNfc_SeStateInitializing;
         pLibContext->sSeContext.pActiveSeInfo = &pLibContext->tSeInfo.tSeList[bIndex];
 
-        /*Start the Sequence for active element*/
-        if (phNciNfc_IsVersion1x(phNciNfc_GetContext()))
-        {
-            PHLIBNFC_INIT_SEQUENCE(pLibContext, gphLibNfc_HciChildDevCommonInitSequenceNci1x);
-        }
-        else
-        {
-            pLibContext->dwHciInitDelay = PHHCINFC_FIRST_TIME_HCI_NWK_FORMATION_TIME_OUT;
-            PHLIBNFC_INIT_SEQUENCE(pLibContext, gphLibNfc_HciChildDevInitSequenceNci2x);
-        }
+        pLibContext->dwHciInitDelay = PHHCINFC_FIRST_TIME_HCI_NWK_FORMATION_TIME_OUT;
+        PHLIBNFC_INIT_SEQUENCE(pLibContext, gphLibNfc_HciChildDevSetModeSequenceNci2x);
         wStatus = phLibNfc_SeqHandler(pLibContext,NFCSTATUS_SUCCESS,NULL);
         if(NFCSTATUS_PENDING != wStatus)
         {
-            PH_LOG_LIBNFC_CRIT_STR("NFCEE init sequence could not start!");
+            PH_LOG_LIBNFC_CRIT_STR("gphLibNfc_HciChildDevSetModeSequenceNci2x could not start!");
             pLibContext->tSeInfo.bSeState[bIndex] = phLibNfc_SeStateInvalid;
             wStatus = NFCSTATUS_FAILED;
         }

@@ -12,7 +12,7 @@ extern NFCSTATUS phLibNfc_HciSetSessionIdentity(void* pContext,NFCSTATUS status,
 extern NFCSTATUS phLibNfc_HciSetSessionIdentityProc(void* pContext,NFCSTATUS status,void* pInfo);
 
 extern NFCSTATUS phLibNfc_HciLaunchDevInitSequence(void *pContext);
-extern NFCSTATUS phLibNfc_HciLaunchChildDevInitSequence(void *pContext, phLibNfc_SE_Index_t bIndex);
+extern NFCSTATUS phLibNfc_HciLaunchNfceeModeSetSeqNci2x(void *pContext, phLibNfc_SE_Index_t bIndex);
 
 #define PH_LIBNFC_INCR_DELAY_ESE_DELAY           (20)
 #define PH_LIBNFC_INCR_DELAY_ESE_DELAY_TIMEOUT   (240)

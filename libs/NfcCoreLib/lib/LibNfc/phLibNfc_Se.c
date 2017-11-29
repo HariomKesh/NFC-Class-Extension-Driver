@@ -8,6 +8,7 @@
 
 #include "phLibNfc_Se.tmh"
 
+
 static NFCSTATUS phLibNfc_SetModeSeq(void *pContext, NFCSTATUS wStatus, void *pInfo);
 static NFCSTATUS phLibNfc_SetModeSeqEnd(void* pContext, NFCSTATUS status, void* pInfo);
 static NFCSTATUS phLibNfc_SetSeModeSeqComplete(void* pContext, NFCSTATUS Status, void *pInfo);
@@ -54,7 +55,6 @@ phLibNfc_Sequence_t gphLibNfc_NfceeStartDiscSeq[] = {
 
 /* NFCEE discovery complete sequence */
 phLibNfc_Sequence_t gphLibNfc_NfceeDiscCompleteSeq[] = {
-    {&phLibNfc_DelayForSeNtf, &phLibNfc_DelayForSeNtfProc},
     {&phLibNfc_HciSetSessionIdentity, &phLibNfc_HciSetSessionIdentityProc},
     {NULL, &phLibNfc_NfceeDiscSeqComplete}
 };
@@ -196,7 +196,6 @@ NFCSTATUS phLibNfc_SE_GetSecureElementList( _Out_writes_to_(PHLIBNFC_MAXNO_OF_SE
         if(1 == pLibContext->Config.bHciNwkPerNfcee)
         {
             pHciCtx = pLibContext->pHciContext;
-
             if((NULL != pHciCtx) && (1 == pHciCtx->bNoOfHosts))
             {
                 bCount++;
@@ -529,13 +528,6 @@ static void phLibNfc_UpdateSeInfo(void* pContext, pphNciNfc_NfceeInfo_t pNfceeIn
                         pCtx->tSeInfo.tSeList[phLibNfc_SE_Index_UICC].eSE_Type = phLibNfc_SE_Type_UICC;
                         pCtx->tSeInfo.tSeList[phLibNfc_SE_Index_UICC].eSE_ActivationMode =
                             (PH_NCINFC_EXT_NFCEEMODE_ENABLE == pNfceeInfo->pNfceeHandle->tDevInfo.eNfceeStatus) ? phLibNfc_SE_ActModeOn : phLibNfc_SE_ActModeOff;
-
-                        wStatus = phLibNfc_SE_GetIndex(pCtx, phLibNfc_SeStateInitializing, &bIndex);
-                        if(wStatus == NFCSTATUS_FAILED)
-                        {
-                            /*Ensure no other NFCEE init sequence is in progress and launch UICC init sequence*/
-                            phLibNfc_HciLaunchChildDevInitSequence(pCtx, phLibNfc_SE_Index_UICC);
-                        }
                     }
                     else
                     {
@@ -553,13 +545,6 @@ static void phLibNfc_UpdateSeInfo(void* pContext, pphNciNfc_NfceeInfo_t pNfceeIn
                         pCtx->tSeInfo.tSeList[phLibNfc_SE_Index_eSE].eSE_Type = phLibNfc_SE_Type_eSE;
                         pCtx->tSeInfo.tSeList[phLibNfc_SE_Index_eSE].eSE_ActivationMode =
                             (PH_NCINFC_EXT_NFCEEMODE_ENABLE == pNfceeInfo->pNfceeHandle->tDevInfo.eNfceeStatus) ? phLibNfc_SE_ActModeOn : phLibNfc_SE_ActModeOff;
-
-                        wStatus = phLibNfc_SE_GetIndex(pCtx, phLibNfc_SeStateInitializing, &bIndex);
-                        if(wStatus == NFCSTATUS_FAILED)
-                        {
-                            /*Ensure no other NFCEE init sequence is in progress and launch ESE init sequence*/
-                            phLibNfc_HciLaunchChildDevInitSequence(pCtx, phLibNfc_SE_Index_eSE);
-                        }
                     }
                     else
                     {
@@ -1194,13 +1179,11 @@ NFCSTATUS phLibNfc_DelayForNfceeAtr(void* pContext, NFCSTATUS status, void* pInf
     PH_LOG_LIBNFC_FUNC_ENTRY();
     if ((NULL != pCtx) && (NFCSTATUS_SUCCESS == wStatus))
     {
-        PH_LOG_LIBNFC_INFO_U32MSG("Delay to receive ATR ntf", pCtx->dwHciInitDelay);
-
         pCtx->dwHciTimerId = phOsalNfc_Timer_Create();
         if (PH_OSALNFC_TIMER_ID_INVALID != pCtx->dwHciTimerId)
         {
             wStatus = phOsalNfc_Timer_Start(pCtx->dwHciTimerId,
-                pCtx->dwHciInitDelay,
+                300,
                 &phLibNfc_NfceeNtfDelayCb,
                 (void *)pCtx);
             if (NFCSTATUS_SUCCESS == wStatus)
@@ -1269,17 +1252,22 @@ phLibNfc_SetModeSeq(void *pContext,
 {
     NFCSTATUS wIntStatus = wStatus;
     pphLibNfc_LibContext_t pLibContext = (pphLibNfc_LibContext_t)pContext;
+    pphNciNfc_NfceeDeviceHandle_t pNfceeHandle;
     UNUSED(pInfo);
     PH_LOG_LIBNFC_FUNC_ENTRY();
     if((NULL != pLibContext) && (phLibNfc_GetContext() == pLibContext))
     {
         if(NFCSTATUS_SUCCESS == wIntStatus)
         {
-            wIntStatus = phNciNfc_Nfcee_ModeSet(pLibContext->sHwReference.pNciHandle,
-                        (void *)pLibContext->sSeContext.pActiveSeInfo->hSecureElement,
-                        pLibContext->sSeContext.eNfceeMode,
-                        (pphNciNfc_IfNotificationCb_t)&phLibNfc_InternalSequence,
-                        (void *)pLibContext);
+            pNfceeHandle = (pphNciNfc_NfceeDeviceHandle_t)pLibContext->sSeContext.pActiveSeInfo->hSecureElement;
+            if (pNfceeHandle != NULL)
+            {
+                wIntStatus = phNciNfc_Nfcee_ModeSet(pLibContext->sHwReference.pNciHandle,
+                    pNfceeHandle->tDevInfo.bNfceeID,
+                    pLibContext->sSeContext.eNfceeMode,
+                    (pphNciNfc_IfNotificationCb_t)&phLibNfc_InternalSequence,
+                    (void *)pLibContext);
+            }
         }
     }
     else
@@ -1488,6 +1476,8 @@ NFCSTATUS phLibNfc_SE_GetIndex(void *pContext, phLibNfc_SE_Status_t bSeState, ui
     {
         for (bIndex=0; bIndex<ARRAYSIZE(pLibContext->tSeInfo.bSeState); bIndex++)
         {
+            PH_LOG_LIBNFC_CRIT_STR("Index = %d", bIndex);
+            PH_LOG_LIBNFC_CRIT_STR("SE state = %d", (pLibContext->tSeInfo.bSeState[bIndex]));
             if (pLibContext->tSeInfo.bSeState[bIndex] == bSeState)
             {
                 *pbIndex = bIndex;
