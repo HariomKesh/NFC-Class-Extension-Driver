@@ -126,7 +126,6 @@ static phLibNfc_Sequence_t gphLibNfc_ReActivate_MFCSeqSelect[] = {
 
 /* Distinguish Mifare Ultralight card between Ultralight, Ultralight C, and Ultralight EV1*/
 static phLibNfc_Sequence_t gphLibNfc_DistinguishMifareUL[] = {
-	{&phLibNfc_T2TSendSleepCmd,NULL },
     {&phLibNfc_MifareULSendGetVersionCmd, &phLibNfc_MifareULProcessGetVersionResp},
     {&phLibNfc_MifareULDeactivateCard, &phLibNfc_MifareULProcessDeactivateCard},
     {&phLibNfc_MifareULConnectCard, &phLibNfc_MifareULProcessConnectCard},
