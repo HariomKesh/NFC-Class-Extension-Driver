@@ -475,9 +475,12 @@ phNciNfc_RecvMfResp(
                         {
                             (psNciContext->tTranscvCtxt.tActiveExtn.ActivExtnId.ExtnRspId) = RecvdExtnRspId;
                             (psNciContext->tTranscvCtxt.tActiveExtn.bParam[0]) = psNciContext->RspBuffInfo.pBuff[psNciContext->RspBuffInfo.wLen-1];//(psNciContext->RspBuffInfo.pBuff[1]);
-
                             /* check the status byte */
-                            if(PH_NCINFC_STATUS_OK == (psNciContext->tTranscvCtxt.tActiveExtn.bParam[0]))
+                            /*For NCI 2.0 Status Field value STATUS_OK_n_BIT*/
+                            if((PH_NCINFC_STATUS_OK == (psNciContext->tTranscvCtxt.tActiveExtn.bParam[0]))||
+                                ((phNciNfc_IsVersion2x(phNciNfc_GetContext())) &&
+                                    ((psNciContext->tTranscvCtxt.tActiveExtn.bParam[0] >= PH_NCINFC_T2T_STATUS_OK_1_BIT) &&
+                                        (psNciContext->tTranscvCtxt.tActiveExtn.bParam[0] <= PH_NCINFC_T2T_STATUS_OK_7_BIT))))
                             {
                                 status = NFCSTATUS_SUCCESS;
                                 PH_LOG_NCI_INFO_STR(" Mf XchgData Request is Successful!! ..");

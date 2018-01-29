@@ -190,3 +190,15 @@
   */
 
 #define PH_NCINFC_INVALID_CNTRL_PAYLOAD_LENGTH                          (0x00F4)
+/**
+  * \ingroup grp_nci_nfc_core
+  *
+  * \brief NCI NFC status T2T STATUS OK Bytes for NCI 2.0
+  */
+#define PH_NCINFC_T2T_STATUS_OK_1_BIT                                    0x11
+#define PH_NCINFC_T2T_STATUS_OK_2_BIT                                    0x12
+#define PH_NCINFC_T2T_STATUS_OK_3_BIT                                    0x13
+#define PH_NCINFC_T2T_STATUS_OK_4_BIT                                    0x14
+#define PH_NCINFC_T2T_STATUS_OK_5_BIT                                    0x15
+#define PH_NCINFC_T2T_STATUS_OK_6_BIT                                    0x16
+#define PH_NCINFC_T2T_STATUS_OK_7_BIT                                    0x17
