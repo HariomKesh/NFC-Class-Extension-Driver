@@ -419,7 +419,8 @@ Return Value:
                                    TRUE);
         if (!NT_SUCCESS(status)) {
             TRACE_LINE(LEVEL_ERROR, "Failed WdfDeviceStopIdle, %!STATUS!", status);
-            goto Done;
+            // As CLX is not power policy owner, WdfDeviceStopIdle is expected to fail. Ignoring the return status
+            //goto Done;
         }
 
         releasePowerReference = TRUE;
@@ -647,7 +648,8 @@ Return Value:
     if (!NT_SUCCESS(status))
     {
         TRACE_LINE(LEVEL_ERROR, "%!STATUS!", status);
-        goto Done;
+        // As CLX is not power policy owner, WdfDeviceStopIdle is expected to fail. Ignoring the return status
+        // goto Done;
     }
     stopIdleCalled = true;
 
