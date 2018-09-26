@@ -88,6 +88,22 @@ static const NFCCX_CX_STATE g_NfcCxIntEvent2StateMap[NfcCxStateMax][NfcCxEventIn
     /*StateShutdown*/       { NfcCxStateIdle,               NfcCxStateShutdown,     NfcCxStateNone,         NfcCxStateNone,         NfcCxStateNone,         NfcCxStateNone,             NfcCxStateIdle            },
 };
 
+
+//
+// State to possible Internal Event map when BUSY
+//
+static const BOOLEAN g_NfcCxState2EventMap[NfcCxStateMax][NfcCxEventInternalMax-NfcCxEventUserMax-1] = {
+                            /*EventReqCompleted*/           /*EventTimeout*/        /*EventRecovery*/       /*EventDiscovered*/     /*EventActivated*/      /*EventDeactivated*/        /*EventFailed*/
+    /*StateIdle*/           { TRUE,                         TRUE,                    TRUE,                  TRUE,                    TRUE,                  TRUE,                      TRUE },
+    /*StateInit*/           { TRUE,                         TRUE,                    TRUE,                  TRUE,                    TRUE,                  TRUE,                      TRUE },
+    /*StateRfIdle*/         { TRUE,                         TRUE,                    TRUE,                  TRUE,                    TRUE,                  TRUE,                      TRUE },
+    /*StateRfDiscovery*/    { TRUE,                         FALSE,                   TRUE,                  FALSE,                   FALSE,                  FALSE,                     TRUE },
+    /*StateRfDiscovered*/   { TRUE,                         TRUE,                    TRUE,                  TRUE,                    TRUE,                  TRUE,                      TRUE },
+    /*StateRfDataXchg*/     { TRUE,                         TRUE,                    TRUE,                  TRUE,                    TRUE,                  TRUE,                      TRUE },
+    /*StateRecovery*/       { TRUE,                         TRUE,                    TRUE,                  TRUE,                    TRUE,                  TRUE,                      TRUE },
+    /*StateShutdown*/       { TRUE,                         TRUE,                    TRUE,                  TRUE,                    TRUE,                  TRUE,                      TRUE },
+};
+
 //
 // State Handlers
 //
@@ -216,6 +232,25 @@ NfcCxStateInterfaceFindTargetState(
 
     TRACE_LINE(LEVEL_INFO, "TargetState=%!NFCCX_CX_STATE!", TargetState);
     return TargetState;
+}
+
+BOOLEAN 
+NfcCxStateInterfaceIsExpectedEvent(
+    _In_ NFCCX_CX_STATE CurrentState,
+    _In_ NFCCX_CX_EVENT Event
+)
+{
+
+    BOOLEAN bStatus = FALSE;
+
+    if (NFCCX_IS_INTERNAL_EVENT(Event))
+    {
+        bStatus = (g_NfcCxState2EventMap[CurrentState][Event - NfcCxEventUserMax - 1]);
+    }
+
+    TRACE_LINE(LEVEL_INFO, "ExpectedEvent status=%x", bStatus);
+    return bStatus;
+
 }
 
 NTSTATUS
@@ -408,34 +443,40 @@ Return Value:
             }
         }
         else if (NFCCX_IS_INTERNAL_EVENT(Event)) {
-            targetState = NfcCxStateInterfaceFindTargetState(StateInterface,
-                                                             g_NfcCxIntEvent2StateMap[StateInterface->CurrentState][Event - NfcCxEventUserMax -1]);
-            if (targetState == NfcCxStateNone) {
-                status = STATUS_INVALID_DEVICE_STATE;
+            if ( (StateInterface->TransitionFlag != NfcCxTransitionIdle) && 
+                    !(NfcCxStateInterfaceIsExpectedEvent(StateInterface->CurrentState, Event))) {
+                    status = NfcCxStateInterfaceAddDeferredEvent(StateInterface, Event, Param1, Param2, Param3);
             }
-            else if (targetState != StateInterface->CurrentState) {
-                if (g_NfcCxStateHandlers[StateInterface->CurrentState][targetState] != NULL) {
-                    StateInterface->TransitionFlag = NfcCxTransitionBusy;
-                    status = g_NfcCxStateHandlers[StateInterface->CurrentState][targetState](StateInterface, Event, Param1, Param2, Param3);
+            else {
+                targetState = NfcCxStateInterfaceFindTargetState(StateInterface,
+                    g_NfcCxIntEvent2StateMap[StateInterface->CurrentState][Event - NfcCxEventUserMax - 1]);
+                if (targetState == NfcCxStateNone) {
+                    status = STATUS_INVALID_DEVICE_STATE;
+                }
+                else if (targetState != StateInterface->CurrentState) {
+                    if (g_NfcCxStateHandlers[StateInterface->CurrentState][targetState] != NULL) {
+                        StateInterface->TransitionFlag = NfcCxTransitionBusy;
+                        status = g_NfcCxStateHandlers[StateInterface->CurrentState][targetState](StateInterface, Event, Param1, Param2, Param3);
+                    }
+
+                    StateInterface->CurrentState = targetState;
                 }
 
-                StateInterface->CurrentState = targetState;
-            }
+                if (status != STATUS_PENDING) {
+                    StateInterface->TransitionFlag = NfcCxTransitionIdle;
 
-            if (status != STATUS_PENDING) {
-                StateInterface->TransitionFlag = NfcCxTransitionIdle;
+                    if (NfcCxStateInterfaceRemoveDeferredEvent(StateInterface, &Event, &Param1, &Param2, &Param3)) {
+                        NfcCxPostLibNfcThreadMessage(StateInterface->FdoContext->RFInterface, LIBNFC_STATE_HANDLER, (UINT_PTR)Event, (UINT_PTR)Param1, (UINT_PTR)Param2, (UINT_PTR)Param3);
+                    }
+                    else if (StateInterface->CurrentUserEvent != NfcCxEventInvalid) {
+                        StateInterface->CurrentUserEvent = NfcCxEventInvalid;
 
-                if (NfcCxStateInterfaceRemoveDeferredEvent(StateInterface, &Event, &Param1, &Param2, &Param3)) {
-                    NfcCxPostLibNfcThreadMessage(StateInterface->FdoContext->RFInterface, LIBNFC_STATE_HANDLER, (UINT_PTR)Event, (UINT_PTR)Param1, (UINT_PTR)Param2, (UINT_PTR)Param3);
-                }
-                else if (StateInterface->CurrentUserEvent != NfcCxEventInvalid) {
-                    StateInterface->CurrentUserEvent = NfcCxEventInvalid;
-
-                    TRACE_LINE(LEVEL_VERBOSE, "SetEvent, handle %p", StateInterface->hUserEventCompleted);
-                    if (!SetEvent(StateInterface->hUserEventCompleted))
-                    {
-                        NTSTATUS eventStatus = NTSTATUS_FROM_WIN32(GetLastError());
-                        TRACE_LINE(LEVEL_ERROR, "SetEvent with handle %p failed, %!STATUS!", StateInterface->hUserEventCompleted, eventStatus);
+                        TRACE_LINE(LEVEL_VERBOSE, "SetEvent, handle %p", StateInterface->hUserEventCompleted);
+                        if (!SetEvent(StateInterface->hUserEventCompleted))
+                        {
+                            NTSTATUS eventStatus = NTSTATUS_FROM_WIN32(GetLastError());
+                            TRACE_LINE(LEVEL_ERROR, "SetEvent with handle %p failed, %!STATUS!", StateInterface->hUserEventCompleted, eventStatus);
+                        }
                     }
                 }
             }

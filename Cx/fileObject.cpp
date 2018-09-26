@@ -611,8 +611,10 @@ Return Value:
     //
     // Cleanup any left over power references from this file object
     //
-    NfcCxPowerCleanupFilePolicyReferences(fdoContext->Power, fileContext);
-
+    if (fdoContext->Power != NULL)
+    {
+        NfcCxPowerCleanupFilePolicyReferences(fdoContext->Power, fileContext);
+    }
     TRACE_FUNCTION_EXIT(LEVEL_VERBOSE);
 
     return;
